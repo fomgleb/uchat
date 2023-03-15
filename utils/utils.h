@@ -2,6 +2,8 @@
 
 #define _GNU_SOURCE
 #include <stdio.h>
+#include <stdint.h>
+#include <time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -10,6 +12,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -27,6 +30,9 @@
 #define MAX_LOGIN_LENGTH 40
 #define MAX_PASSWORD_LENGTH 50
 #define MAX_CHAT_NAME_LENGTH 30
+
+#define DEFAULT_TIME_FORMAT "%4Y-%2m-%2d %2H:%2M:%2S"
+#define DEFAULT_TIME_FORMAT_LEN 20
 
 typedef struct s_address {
     char *ip;
@@ -59,16 +65,24 @@ typedef struct s_text_message_data {
     char *text;
 } t_text_message_data;
 
-typedef struct s_user_message {
-    id_t user_id;
-    char *user_login;
-    char *bytes;
-} t_user_message;
-
 typedef struct s_user {
     id_t id;
     char *login;
 } t_user;
+
+typedef struct s_package {
+    struct iovec *const buffer;
+    const size_t size;
+    size_t filled_size;
+} t_package;
+t_package create_package(size_t size);
+void free_package(t_package package);
+void pack_byte(uint8_t byte, t_package *package);
+void pack_uint16(uint16_t number, t_package *package);
+void pack_uint32(uint32_t number, t_package *package);
+void pack_bytes(char *bytes, t_package *package);
+void send_package(int socket, t_package package);
+void send_and_free_package(int socket, t_package package);
 
 typedef enum e_request {
     LOGIN, // -> login -> password
@@ -88,7 +102,6 @@ typedef enum e_state_code {
     SUCCESSFULLY_READ,
     SUCCESSFUL_REGISTRATION,
     SUCCESSFUL_LOGIN,
-    CHAT_CREATED_SUCCESSFULLY,
     USER_SUCCESSFULLY_ADDED_TO_CHAT,
     TEXT_MESSAGE_SENT_SUCCESSFULLY,
     USER_REMOVED_FROM_CHAT_SUCCESSFULLY,
@@ -111,31 +124,30 @@ int receive(int socket, char *buffer, size_t length);
  * ECONNABORTED.
  * @return Read unsigned char.
 */
-uint8_t receive_unsigned_char(int socket);
+uint8_t receive_byte(int socket);
 /**
  * @brief Reads 2 bytes from SOCKET. On errors, sets the erno variable to
  * ECONNABORTED.
  * @return Read unsigned short.
 */
-uint16_t receive_unsigned_short(int socket);
+uint16_t receive_uint16(int socket);
 /**
  * @brief Reads 4 bytes from SOCKET. On errors, sets the erno variable to
  * ECONNABORTED.
  * @return Read unsigned int.
 */
-uint32_t receive_unsigned_int(int socket);
+uint32_t receive_uint32(int socket);
 /**
  * @brief Reads string from SOCKET. On errors, sets the errno variable to
  * ECONNABORTED. Reading format: int -> string. First, the size of the string
  * is read, and then the string itself.
  * @return Pointer to allocated string.
 */
-char *receive_string(int socket);
+char *receive_bytes(int socket);
 
-void send_unsigned_char(int socket, unsigned char character);
-void send_unsigned_short(int socket, uint16_t number);
-void send_unsigned_int(int socket, uint32_t number);
-void send_string(int socket, char *string);
+void send_byte(int socket, uint8_t byte);
+void send_uint16(int socket, uint16_t number);
+void send_uint32(int socket, uint32_t number);
 
 pthread_t create_default_thread(void *(*func)(void *), void *arg);
 void create_detached_thread(void *(*func)(void *), void *arg);
@@ -155,8 +167,10 @@ void free_chat(t_chat chat);
 void free_chats(t_chat *chats, size_t length);
 void free_new_chat_member_data(t_new_chat_member_data new_chat_member_data);
 void free_text_message_data(t_text_message_data text_message_data);
-void free_user_message(t_user_message message);
-void free_user_messages_array(t_user_message *messages, size_t length);
 void free_user(t_user user);
 void free_users(t_user *users, size_t users_count);
+
+struct tm str_to_tm(char *datetime_str, char *datetime_format);
+struct tm utc_to_localtime(struct tm utc);
+struct tm utc_str_to_localtime_tm(char *utc_str, char *datetime_format);
 

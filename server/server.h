@@ -25,11 +25,20 @@
 #define MESSAGES_USER_ID "UserId"
 #define MESSAGES_CONTENT "Content"
 #define MESSAGES_CREATION_DATE "CreationDate"
+#define MESSAGES_ORDER "OrderInChat"
 
 #define MESSAGE_STATUSES_TABLE "MessageStatuses"
 #define MESSAGE_STATUSES_MESSAGE_ID "MessageId"
 #define MESSAGE_STATUSES_USER_ID "UserId"
 #define MESSAGE_STATUSES_IS_READ "IsRead"
+
+typedef struct s_user_message {
+    id_t user_id;
+    char *user_login;
+    char *bytes;
+    char *creation_date;
+    uint32_t order_in_chat;
+} t_user_message;
 
 void *handle_request_thread(void *client_socket_void);
 
@@ -107,11 +116,20 @@ char *db_get_chat_name_by_id(sqlite3 *db, id_t chat_id);
 id_t *db_get_IDs_of_chats_user_is_in(sqlite3 *db, id_t user_id, size_t *IDs_of_chats_len);
 t_chat *db_get_chats_user_is_in(sqlite3 *db, id_t user_id, size_t *number_of_chats);
 /**
- * @brief Searches for last COUNT messages by CHAT_ID in messages table. Number of found
- * messages writes to NUMBER_OF_FOUND variable.
+ * @brief Searches COUNT messages from LAST_MESSAGE_ORDER by CHAT_ID in messages table.
+ * Number of found messages writes to NUMBER_OF_FOUND variable.
+ *
+ * Examples:
+ * 1) There're 50 messages in chat;
+ * db_get_last_messages(db, id, 25, 6, number_of_found) will return messages with orders:
+ * 25, 24, 23, 22, 21, 20;
+ *
+ * 2) There're 100 messages in chat;
+ * db_get_last_messages(db, id, UINT32_MAX, 6, number_of_found) will return messages with orders:
+ * 100, 99, 98, 97, 96, 95.
  * @return Allocated array of messages
 */
-t_user_message *db_get_last_messages(sqlite3 *db, id_t chat_id, size_t count, size_t *number_of_found);
+t_user_message *db_get_last_messages(sqlite3 *db, id_t chat_id, uint32_t last_message_order, size_t count, size_t *number_of_found);
 /**
  * @brief Searches for members in chat by CHAT_ID. Number of found members writes to
  * MEMBERS_COUNT variable.
@@ -129,3 +147,6 @@ bool db_user_is_in_chat(sqlite3 *db, id_t user_id, id_t chat_id);
  * @return nothing but turns server into the daemon state
 */
 void daemon_server();
+
+void free_user_message(t_user_message message);
+void free_user_messages(t_user_message *messages, size_t length);
